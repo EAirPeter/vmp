@@ -9,9 +9,9 @@ namespace vmp::intrin {
         U64 uCounter;
         asm volatile (
             "rep movsq"
-        :   "+S"(pRhs),
-            "+D"(pLhs),
-            "+c"(uCounter = kLength)
+        :   "+&S"(pRhs),
+            "+&D"(pLhs),
+            "+&c"(uCounter = kLength)
         ::  "memory"
         );
     }

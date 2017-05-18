@@ -3,69 +3,68 @@
 
 #include "../Common.hpp"
 
-#define VMP_VU64_CMP_ASM_QWD(len_, ops_)                        \
-U64 uTmp;                                                       \
-asm volatile (                                                  \
-    ops_                                                        \
-    "xor %k[qtm], %k[qtm]\n\t"                                  \
-    "jmp jEnd_%=\n"                                             \
-"jDone_%=:\n\t"                                                 \
-    "sbb %k[qtm], %k[qtm]\n\t"                                  \
-    "or %k[qtm], 1\n"                                           \
-"jEnd_%=:\n\t"                                                  \
-:   [qtm]"=&r"(uTmp)                                            \
-:   [len]"i"(len_),                                             \
-    [lhs]"r"(pLhs),                                             \
-    [rhs]"r"(pRhs)                                              \
-:   "cc"                                                        \
-);                                                              \
+#define VMP_VU64_CMP_ASM_QWD(len_, ops_)                            \
+U64 uTmp;                                                           \
+asm volatile (                                                      \
+    ops_                                                            \
+    "xor %k[qtm], %k[qtm]\n\t"                                      \
+    "jmp L_End_%=\n"                                                \
+"L_Done_%=:\n\t"                                                    \
+    "sbb %k[qtm], %k[qtm]\n\t"                                      \
+    "or %k[qtm], 1\n"                                               \
+"L_End_%=:"                                                         \
+:   [qtm]"=&r"(uTmp)                                                \
+:   [len]"i"(len_),                                                 \
+    [lhs]"r"(pLhs),                                                 \
+    [rhs]"r"(pRhs)                                                  \
+:   "cc"                                                            \
+);                                                                  \
 return (int) uTmp
 
-#define VMP_VU64_CMP_ASM_VEC(ops_)                              \
-__m256i yTmp, yZero {};                                         \
-U64 uIter, uTmp;                                                \
-asm volatile (                                                  \
-    ops_ "\n"                                                   \
-"jLoop_%=:\n\t"                                                 \
-    "vmovdqu %[ytm], ymmword ptr[%[lhs] + %[itr]]\n\t"          \
-    "vxorps %[ytm], %[ytm], ymmword ptr[%[rhs] + %[itr]]\n\t"   \
-    "vptest %[zero], %[ytm]\n\t"                                \
-    "jnc jIn256_%=\n\t"                                         \
-    "sub %[itr], 32\n\t"                                        \
-    "jnz jLoop_%=\n\t"                                          \
-    "xor %k[qtm], %k[qtm]\n\t"                                  \
-    "jmp jEnd_%=\n"                                             \
-"jIn256_%=:\n\t"                                                \
-    "mov %[qtm], qword ptr[%[lhs] + %[itr] + 24]\n\t"           \
-    "cmp %[qtm], qword ptr[%[rhs] + %[itr] + 24]\n\t"           \
-    "jne jDone_%=\n\t"                                          \
-    "mov %[qtm], qword ptr[%[lhs] + %[itr] + 16]\n\t"           \
-    "cmp %[qtm], qword ptr[%[rhs] + %[itr] + 16]\n\t"           \
-    "jne jDone_%=\n\t"                                          \
-    "mov %[qtm], qword ptr[%[lhs] + %[itr] + 8]\n\t"            \
-    "cmp %[qtm], qword ptr[%[rhs] + %[itr] + 8]\n\t"            \
-    "jne jDone_%=\n\t"                                          \
-    "mov %[qtm], qword ptr[%[lhs] + %[itr]]\n\t"                \
-    "cmp %[qtm], qword ptr[%[rhs] + %[itr]]\n"                  \
-"jDone_%=:\n\t"                                                 \
-    "sbb %k[qtm], %k[qtm]\n\t"                                  \
-    "or %k[qtm], 1\n"                                           \
-"jEnd_%=:"                                                      \
-:   [ytm]"=&x"(yTmp),                                           \
-    [itr]"+&r"(uIter = kLength >> 2 << 5),                      \
-    [qtm]"=&r"(uTmp)                                            \
-:   [zero]"x"(yZero),                                           \
-    [len]"i"(kLength),                                          \
-    [lhs]"r"(pLhs - 4),                                         \
-    [rhs]"r"(pRhs - 4)                                          \
-:   "cc"                                                        \
-);                                                              \
+#define VMP_VU64_CMP_ASM_VEC(ops_)                                  \
+__m256i yTmp;                                                       \
+U64 uIter, uTmp;                                                    \
+asm volatile (                                                      \
+    ops_ "\n"                                                       \
+"L_Loop_%=:\n\t"                                                    \
+    "vmovdqu %[ytm], ymmword ptr[%[lhs] + %[itr]]\n\t"              \
+    "vxorps %[ytm], %[ytm], ymmword ptr[%[rhs] + %[itr]]\n\t"       \
+    "vptest %[ytm], %[ytm]\n\t"                                     \
+    "jnz L_InYmm_%=\n\t"                                            \
+    "sub %[itr], 32\n\t"                                            \
+    "jnz L_Loop_%=\n\t"                                             \
+    "xor %k[qtm], %k[qtm]\n\t"                                      \
+    "jmp L_End_%=\n"                                                \
+"L_InYmm_%=:\n\t"                                                   \
+    "mov %[qtm], qword ptr[%[lhs] + %[itr] + 24]\n\t"               \
+    "cmp %[qtm], qword ptr[%[rhs] + %[itr] + 24]\n\t"               \
+    "jne L_Done_%=\n\t"                                             \
+    "mov %[qtm], qword ptr[%[lhs] + %[itr] + 16]\n\t"               \
+    "cmp %[qtm], qword ptr[%[rhs] + %[itr] + 16]\n\t"               \
+    "jne L_Done_%=\n\t"                                             \
+    "mov %[qtm], qword ptr[%[lhs] + %[itr] + 8]\n\t"                \
+    "cmp %[qtm], qword ptr[%[rhs] + %[itr] + 8]\n\t"                \
+    "jne L_Done_%=\n\t"                                             \
+    "mov %[qtm], qword ptr[%[lhs] + %[itr]]\n\t"                    \
+    "cmp %[qtm], qword ptr[%[rhs] + %[itr]]\n"                      \
+"L_Done_%=:\n\t"                                                    \
+    "sbb %k[qtm], %k[qtm]\n\t"                                      \
+    "or %k[qtm], 1\n"                                               \
+"L_End_%=:"                                                         \
+:   [ytm]"=&x"(yTmp),                                               \
+    [itr]"+&r"(uIter = kLength >> 2 << 5),                          \
+    [qtm]"=&r"(uTmp)                                                \
+:   [len]"i"(kLength),                                              \
+    [lhs]"r"(pLhs - 4),                                             \
+    [rhs]"r"(pRhs - 4)                                              \
+:   "cc"                                                            \
+);                                                                  \
 return (int) uTmp;
 
-#define VMP_VU64_CMP_ASM_OPR(off_) \
+#define VMP_VU64_CMP_ASM_OPR(off_)                                  \
     "mov %[qtm], qword ptr[%[lhs] + (%[len] + " off_ ") * 8]\n\t"   \
     "cmp %[qtm], qword ptr[%[rhs] + (%[len] + " off_ ") * 8]\n\t"   \
-    "jne jDone_%=\n\t"
+    "jne L_Done_%=\n\t"
 
 namespace vmp::intrin {
     template<U64 kLength> inline

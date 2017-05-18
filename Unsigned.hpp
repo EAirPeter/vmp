@@ -150,6 +150,13 @@ namespace vmp {
             return *this = Unsigned(*this).Mul(mpuRhs);
         }
     public:
+        U64 GetIdxLowBit() const noexcept {
+            return 0;
+        }
+        U64 GetIdxHighBit() const noexcept {
+            return 0;
+        }
+    public:
         const U64 *GetData() const {
             return x_vData;
         }

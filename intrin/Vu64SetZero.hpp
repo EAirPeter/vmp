@@ -9,8 +9,8 @@ namespace vmp::intrin {
         U64 uCounter;
         asm volatile (
             "rep stosq"
-        :   "+D"(pData),
-            "+c"(uCounter = kLength)
+        :   "+&D"(pData),
+            "+&c"(uCounter = kLength)
         :   "a"((U64) 0)
         :   "memory"
         );
